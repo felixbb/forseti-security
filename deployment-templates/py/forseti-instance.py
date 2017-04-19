@@ -41,6 +41,10 @@ def GenerateConfig(context):
     SCANNER_BUCKET = context.properties['scanner-bucket']
     DATABASE_NAME = context.properties['database-name']
     SHOULD_INVENTORY_GROUPS = bool(context.properties['inventory-groups'])
+    try:
+      OPTIONAL_MODULES = context.properties['optional-modules']
+    except KeyError:
+      OPTIONAL_MODULES = {}
 
     SERVICE_ACCOUNT_SCOPES =  context.properties['service-account-scopes']
 
@@ -81,6 +85,12 @@ def GenerateConfig(context):
             GROUPS_SERVICE_ACCOUNT_KEY_FILE,
         )
         inventory_command = inventory_command + inventory_groups_flags
+
+
+    api_modules = []
+    for module in OPTIONAL_MODULES:
+        if module["enabled"]:
+            api_modules.append(module["name"])
 
     resources = []
 
@@ -219,6 +229,31 @@ echo "$RUN_FORSETI" > $USER_HOME/run_forseti.sh
 chmod +x $USER_HOME/run_forseti.sh
 
 (echo "0 * * * * $USER_HOME/run_forseti.sh") | crontab -
+
+API_ACTIVATION_KEYWORD="activate_api"
+API_ACTIVATION_CONFIG="{}"
+if [ "$API_ACTIVATION_KEYWORD" = "$API_ACTIVATION_CONFIG" ];
+then
+
+# Create upstart script
+read -d '' API_SERVER << EOF
+description "Forseti API Server"
+author "Felix Matenaar <fmatenaar@google.com>"
+
+start on runlevel [234]
+stop on runlevel[0156]
+
+chdir $USER_HOME
+export PYTHONPATH=.
+respawn
+exec /usr/local/bin/forseti_api {}
+EOF
+echo "$API_SERVER" > /etc/init/forseti_api.conf
+
+initctl reload-configuration
+start forseti_api
+
+fi
 """.format(
     # cloud_sql_proxy
     context.properties['cloudsqlproxy-os-arch'],
@@ -240,6 +275,10 @@ chmod +x $USER_HOME/run_forseti.sh
 
     # - forseti_scanner
     scanner_command,
+
+    # - api module activation
+    "activate_api" if len(api_modules) > 0 else "DEACTIVATE_API",
+    " ".join(api_modules),
 )
                 }]
             }

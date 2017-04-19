@@ -71,3 +71,10 @@ resources:
     inventory-groups: true
     groups-domain-super-admin-email: EMAIL_ADDRESS_OF_A_GSUITE_SUPER_ADMIN
     groups-service-account-key-file: "/home/ubuntu/service-account-key.json"
+    optional-modules:
+        - name: explain
+          api: true
+          enabled: false
+        - name: playground
+          api: true
+          enabled: false

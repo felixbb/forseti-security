@@ -43,7 +43,7 @@ INSTALL_REQUIRES = [
     'PyYAML==3.12',
     'ratelimiter==1.1.0',
     'retrying==1.3.3',
-    'sendgrid==3.6.3'
+    'sendgrid==3.6.3',
     'SQLAlchemy==1.1.9',
 ]
 
@@ -74,12 +74,6 @@ class PostInstallCommand(install):
         build_protos()
         install.do_egg_install(self)
 
-class BuildProxy(install):
-    """Proxy build process."""
-
-    def run(self):
-        subprocess.check_call(['sh', 'proxy/build.sh'])
-
 setup(
     name='forseti-security',
     version=FORSETI_VERSION,
@@ -94,7 +88,6 @@ setup(
     ],
     cmdclass={
         'install': PostInstallCommand,
-        'proxy': BuildProxy,
     },
     install_requires=SETUP_REQUIRES + INSTALL_REQUIRES,
     setup_requires=SETUP_REQUIRES,

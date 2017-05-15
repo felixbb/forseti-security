@@ -138,7 +138,7 @@ class CloudResourceManagerTest(basetest.TestCase):
         project_id = '11111'
         self.crm_api_client.get_project_iam_policies('foo', project_id)
         self.crm_api_client.service.projects.assert_called_once_with()
-        mock_project_stub.getIamPolicy.assert_called_once_with(
+        mock_project_stub.get_iam_policy.assert_called_once_with(
             resource=project_id, body={})
 
         # test the error handling
@@ -199,7 +199,7 @@ class CloudResourceManagerTest(basetest.TestCase):
 
         self.assertEquals(expected_result, result)
         self.crm_api_client.service.organizations.assert_called_once_with()
-        mock_orgs_stub.getIamPolicy.assert_called_once_with(
+        mock_orgs_stub.get_iam_policy.assert_called_once_with(
             resource='organizations/11111', body={})
 
         # test the error handling

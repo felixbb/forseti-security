@@ -20,12 +20,15 @@ import binascii
 import collections
 import struct
 import hmac
+from threading import Lock
 
 
 from sqlalchemy import Column, Integer, String, Sequence, ForeignKey
 from sqlalchemy import create_engine, Table, DateTime, or_
 from sqlalchemy.orm import relationship, aliased, sessionmaker
 from sqlalchemy.ext.declarative import declarative_base
+
+from google.cloud.security.iam.utils import mutual_exclusive
 
 
 def generate_model_handle():
@@ -188,17 +191,13 @@ def define_model(model_name, dbengine, model_seed):
         """Row for a binding between resource, roles and members."""
         __tablename__ = bindings_tablename
 
-        id = Column(
-            Integer,
-            Sequence(
-                '{}_id_seq'.format(bindings_tablename)),
-            primary_key=True)
+        id = Column(Integer, Sequence('{}_id_seq'.format(bindings_tablename)),
+                    primary_key=True)
 
         resource_name = Column(Integer, ForeignKey(
             '{}.name'.format(resources_tablename)))
-        role_name = Column(
-            Integer, ForeignKey(
-                '{}.name'.format(roles_tablename)))
+        role_name = Column(Integer, ForeignKey(
+            '{}.name'.format(roles_tablename)))
 
         resource = relationship('Resource', remote_side=[resource_name])
         role = relationship('Role', remote_side=[role_name])
@@ -691,10 +690,15 @@ def define_model(model_name, dbengine, model_seed):
         @classmethod
         def expand_resources(cls, session, full_resource_names):
             """Expand resources towards the bottom."""
+            if not isinstance(full_resource_names, list) and\
+               not isinstance(full_resource_names, set):
+                raise TypeError('full_resource_names must be list or set')
+
             resources = session.query(Resource).filter(
                 Resource.full_name.in_(full_resource_names)).all()
-            new_resource_set = set([r.full_name for r in resources])
-            resource_set = set([r.full_name for r in resources])
+
+            new_resource_set = set(resources)
+            resource_set = set(resources)
 
             def add_to_sets(resources):
                 """Adds resources to the sets."""
@@ -709,7 +713,7 @@ def define_model(model_name, dbengine, model_seed):
                 for resource in resources_to_walk:
                     add_to_sets(resource.children)
 
-            return resource_set
+            return [r.full_name for r in resource_set]
 
         @classmethod
         def reverse_expand_members(cls, session, member_names,
@@ -895,6 +899,7 @@ class ScopedSessionMaker(object):
         return ScopedSession(self.sessionmaker(*args), self.auto_commit)
 
 
+LOCK = Lock()
 class ModelManager(object):
     """
     ModelManager is the central class to create,list,get and delete models.
@@ -914,6 +919,7 @@ class ModelManager(object):
                 bind=self.engine),
             auto_commit=True)
 
+    @mutual_exclusive(LOCK)
     def create(self):
         """Create a new model entry in the database."""
         model_name = generate_model_handle()
@@ -940,13 +946,13 @@ class ModelManager(object):
             raise KeyError(model)
         return self.sessionmakers[model]
 
+    @mutual_exclusive(LOCK)
     def delete(self, model_name):
         """Delete a model entry in the database by name."""
         _, data_access = self.sessionmakers[model_name]
         del self.sessionmakers[model_name]
         with self.modelmaker() as session:
             session.query(Model).filter(Model.handle == model_name).delete()
-            session.commit()
         data_access.delete_all(self.engine)
 
     def models(self):
@@ -966,7 +972,7 @@ def session_creator(model_name, filename=None, seed=None):
     if filename:
         engine = create_engine('sqlite:///{}'.format(filename))
     else:
-        engine = create_engine('sqlite:///:memory:', echo=True)
+        engine = create_engine('sqlite:///:memory:', echo=False)
     if seed is None:
         seed = generate_model_seed()
     session_maker, data_access = define_model(model_name, engine, seed)

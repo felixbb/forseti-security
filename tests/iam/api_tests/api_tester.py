@@ -42,7 +42,7 @@ class ModelTestRunner(ApiTestRunner):
     def __init__(self, model, *args, **kwargs):
         super(ModelTestRunner, self).__init__(*args, **kwargs)
         self.model = model
-  
+
     def _install_model(self, model, client):
         resource_full_name_map = self._install_resources(model['resources'], client.playground)
         self._install_memberships(model['memberships'], client.playground)
@@ -57,9 +57,9 @@ class ModelTestRunner(ApiTestRunner):
 
         res_type, res_name = node.split('/', 1)
         full_res_name = full_resource_name(res_name, res_type, parent)
-        client.add_resource(full_res_name, res_type, parent, parent=='')
+        client.add_resource(full_res_name, res_type, parent, parent == '')
         resource_full_name_map[node] = full_res_name
-        
+
         for root, tree in model.iteritems():
             self._recursive_install_resources(root, tree, client, full_res_name, resource_full_name_map)
 
@@ -76,7 +76,7 @@ class ModelTestRunner(ApiTestRunner):
         for root, tree in model.iteritems():
             self._recursive_invert_membership(root, tree, parentship)
         return parentship
-    
+
     def _cyclic(self, g):
         path = set()
         visited = set()

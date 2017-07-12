@@ -619,6 +619,28 @@ class DaoTest(ForsetiTestCase):
                 self.assertIn((acc_res, acc_members), access,
                               'Should find access in expected')
 
+        expected_by_permission = {
+                'delete': [
+                        (u'r/res1', set([u'user/u1'])),
+                        (u'r/res4', set([u'user/u3',
+                                         u'user/u4',
+                                         u'group/g2'])),
+                    ],
+            }
+
+        for perm, access in expected_by_permission.iteritems():
+            result = [r for r in (
+                data_access.query_access_by_permission(
+                    session,
+                    permission_name=perm,
+                    expand_groups=True,
+                    expand_resources=False))]
+
+            for item in result:
+                _, acc_res, acc_members = item
+                self.assertIn((acc_res, acc_members), access,
+                              'Should find access in expected')
+
     def test_query_access_by_member(self):
         """Test query_access_by_member."""
         session_maker, data_access = session_creator('test')
